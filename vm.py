@@ -11,7 +11,40 @@ import math
 from typing import List, Dict, Any
 from dataclasses import dataclass, field
 
-QEMU_ARCH = {"x86_64"}
+QEMU_ARCH = {
+    "aarch64",
+    "alpha",
+    "arm",
+    "cris",
+    "hppa",
+    "i386",
+    "lm32",
+    "m68k",
+    "microblaze",
+    "microblazeel",
+    "mips",
+    "mips64",
+    "mips64el",
+    "mipsel",
+    "moxie",
+    "nios2",
+    "or1k",
+    "ppc",
+    "ppc64",
+    "riscv32",
+    "riscv64",
+    "s390x",
+    "sh4",
+    "sh4eb",
+    "sparc",
+    "sparc64",
+    "tricore",
+    "unicore32",
+    "x86_64",
+    "xtensa",
+    "xtensaeb",
+}
+VGA_OPT = {"cirrus", "std", "vmware", "qxl"}
 BYTES_RE = re.compile("^[0-9]+[MG]$")
 OPTION_FILE_NAME = "options.json"
 
@@ -49,10 +82,6 @@ def print_help(parser: ArgumentParser):
         exit(1)
 
     return ret
-
-
-def eprint(*args, **kwargs):
-    print(*args, **kwargs, file=stderr)
 
 
 def new(args):
@@ -95,8 +124,14 @@ def new(args):
                        check=True)
         with open(vm_dir / OPTION_FILE_NAME, "w") as fh:
             json.dump(
-                Options(mounted=[], memory=memory, arch=arch,
-                        cores=cores).__dict__,
+                Options(
+                    mounted=[],
+                    memory=memory,
+                    arch=arch,
+                    cores=cores,
+                    vga="std",
+                    raw_args=[],
+                ).__dict__,
                 fh,
                 indent=4,
             )
@@ -106,6 +141,8 @@ def new(args):
         eprint("qemu-img failed")
         rmdir(vm_dir)
         exit(1)
+    except FileNotFoundError:
+        exit(f"qemu-img not installed")
 
 
 def ls(_args):
@@ -143,6 +180,8 @@ def run(args):
         str(vm.options.cores),
         "-boot",
         "menu=on",
+        "-vga",
+        vm.options.vga,
     ]
     if cfg.enable_kvm:
         qemu_cmd.append("-enable-kvm")
@@ -150,12 +189,16 @@ def run(args):
     for mount in vm.options.mounted:
         qemu_cmd += ["-cdrom", mount]
 
+    qemu_cmd += vm.options.raw_args
+
     qemu_cmd.append(vm.img_path)
 
     try:
         subprocess.run(qemu_cmd)
     except subprocess.CalledProcessError:
         exit(1)
+    except FileNotFoundError:
+        exit(f"{qemu_cmd[0]} for arch {vm.options.arch} not installed")
 
 
 class Validator:
@@ -247,12 +290,18 @@ def get_editor() -> str:
     return environ.get("EDITOR", "vi")
 
 
+def eprint(*args, **kwargs):
+    print(*args, **kwargs, file=stderr)
+
+
 @dataclass
 class Options:
     mounted: List[str]
     memory: str
     arch: str
     cores: int
+    vga: str
+    raw_args: List[str]
 
 
 OPTIONS_SCHEMA = JsonObj({
@@ -260,6 +309,8 @@ OPTIONS_SCHEMA = JsonObj({
     "arch": OneOf(QEMU_ARCH),
     "memory": MatchesRe(BYTES_RE),
     "cores": Instance(int),
+    "vga": OneOf(VGA_OPT),
+    "raw_args": ListOf(str),
 })
 
 
