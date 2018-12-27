@@ -162,8 +162,7 @@ def edit(args):
         exit(f"vm {args.VM} doesn't exist")
     except FileNotFoundError:
         exit(f"Can't launch {editor}.\n\
-Set the env var EDITOR to your favorite editor.\n\
-Also your system doesn't seem to be POSIX compliant because vi is missing.")
+Set the env var EDITOR to your favorite editor")
 
 
 def run(args):
