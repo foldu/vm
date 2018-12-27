@@ -155,10 +155,15 @@ def ls(_args):
 def edit(args):
     cfg = load_config()
     vms = get_vms(cfg)
+    editor = get_editor()
     try:
-        subprocess.run([get_editor(), vms[args.VM].options_path])
+        subprocess.run([editor, vms[args.VM].options_path])
     except KeyError:
         exit(f"vm {args.VM} doesn't exist")
+    except FileNotFoundError:
+        exit(f"Can't launch {editor}.\n\
+Set the env var EDITOR to your favorite editor.\n\
+Also your system doesn't seem to be POSIX compliant because vi is missing.")
 
 
 def run(args):
